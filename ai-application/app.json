@@ -12,6 +12,11 @@
       "supportsTablet": true
     },
     "android": {
+      "newArchEnabled": true,
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
+      "jsEngine": "hermes",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -19,7 +24,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.andreaszel.aiapplication"
     },
     "web": {
       "output": "static",
@@ -39,28 +45,7 @@
           }
         }
       ],
-      [
-        "llama.rn",
-        {
-          "enableEntitlements": true,
-          "entitlementsProfile": "production",
-          "forceCxx20": true,
-          "enableOpenCL": true
-        }
-      ],
-      [
-        "react-native-vision-camera",
-        {
-          "cameraPermissionText": "This app needs camera access to scan objects."
-        }
-      ],
-      [
-        "expo-file-system",
-        {
-          "supportsOpeningDocumentsInPlace": true,
-          "enableFileSharing": true
-        }
-      ]
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
