@@ -1,44 +1,116 @@
 import { useEffect, useRef, useState } from "react";
 import { TouchableOpacity, View, StyleSheet, Text, Image } from "react-native";
-import { Camera, useCameraDevice } from "react-native-vision-camera";
+import { CameraSession, NativePreviewView, useCameraDevice, useCameraPermission, VisionCamera } from "react-native-vision-camera";
 import { initLlama, LlamaContext } from "llama.rn";
-import { File, Paths } from 'expo-file-system';
+import { File, Paths } from "expo-file-system";
+import { Asset } from 'expo-asset';
+import * as FileSystem from 'expo-file-system/legacy';
+
+/* eslint-disable @typescript-eslint/no-require-imports */
+const modelRequireHandle = require("../assets/models/SmolVLM2-256M-Video-Instruct-Q8_0.gguf");
+const mmprojRequireHandle = require("../assets/models/mmproj-SmolVLM2-256M-Video-Instruct-Q8_0.gguf");
+/* eslint-disable @typescript-eslint/no-require-imports */
+
 
 export function StaticObjectScanner() {
-    const cameraRef = useRef<typeof Camera>(null);
+
+    const { hasPermission, requestPermission } = useCameraPermission();
     const device = useCameraDevice('back');
+
+    const previewOutputRef = useRef<any>(null);
+    const sessionRef = useRef<CameraSession | null>(null);
+    const photoOutputRef = useRef<any>(null);
 
     const [context, setContext] = useState<LlamaContext | null>(null);
     const [result, setResult] = useState('Loading local AI model...');
     const [photoUri, setPhotoUri] = useState<string | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [sessionReady, setSessionReady] = useState(false);
+
+    useEffect(() => {
+        if (!hasPermission) {
+            requestPermission();
+        }
+    }, [hasPermission, requestPermission]);
+
+    useEffect(() => {
+        if (!hasPermission || !device) return;
+
+        const setupSession = async () => {
+            try {
+                const previewOutput = VisionCamera.createPreviewOutput();
+                previewOutputRef.current = previewOutput;
+
+                const photoOutput = VisionCamera.createPhotoOutput({
+                    targetResolution: { width: 1280, height: 720 },
+                    containerFormat: 'jpeg',
+                    quality: 0.9,
+                    qualityPrioritization: 'quality',
+                });
+                photoOutputRef.current = photoOutput;
+
+                const session = await VisionCamera.createCameraSession(false);
+                sessionRef.current = session;
+
+                await session.configure([
+                    {
+                        input: device,
+                        outputs: [
+                            { output: previewOutput, mirrorMode: 'auto' },
+                            { output: photoOutput, mirrorMode: 'auto' },
+                        ],
+                        constraints: []
+                    }
+                ], {});
+
+                await session.start();
+                setSessionReady(true);
+            } catch (error: any) {
+                setResult(`Camera session error: ${error.message}`);
+            }
+        };
+
+        setupSession();
+
+        return () => {
+            sessionRef.current?.stop();
+            sessionRef.current?.dispose();
+            sessionRef.current = null;
+        };
+    }, [hasPermission, device]);
 
     useEffect(() => {
         const loadLocalModel = async () => {
             try {
-                const modelFile = new File(Paths.document, '../assets/models/SmolVLM2-256M-Video-Instruct-Q8_0.gguf');
-                const mmprojFile = new File(Paths.document, '../assets/models/mmproj-SmolVLM2-256M-Video-Instruct-Q8_0.gguf');
 
-                if (!modelFile.exists || !mmprojFile.exists) {
-                    setResult('Model files not found. Please download them first.');
-                    return;
+                const localModelFile = new File(Paths.document, 'model.gguf');
+                const localMmprojFile = new File(Paths.document, 'mmproj.gguf');
+
+                if (!localModelFile.exists) {
+                    setResult('Copying model to device storage...');
+                    const modelAsset = await Asset.fromModule(modelRequireHandle).downloadAsync();
+                    const modelSrcFile = new File(modelAsset.localUri!);
+                    modelSrcFile.copy(localModelFile);
                 }
 
-                // init the model
+                if (!localMmprojFile.exists) {
+                    setResult('Copying mmproj to device storage...');
+                    const mmprojAsset = await Asset.fromModule(mmprojRequireHandle).downloadAsync();
+                    const mmprojSrcFile = new File(mmprojAsset.localUri!);
+                    mmprojSrcFile.copy(localMmprojFile);
+                }
+
                 const llamaContext = await initLlama({
-                    model: modelFile.uri,
+                    model: localModelFile.uri,
                     n_ctx: 2048,
-                    ctx_shift: false
                 });
 
-                // attach the mmproj
                 const multimodalReady = await llamaContext.initMultimodal({
-                    path: mmprojFile.uri,
-                    use_gpu: true,
+                    path: localMmprojFile.uri,
                 });
 
                 if (!multimodalReady) {
-                    setResult('Failed to initialize vision support.');
+                    setResult('Failed to initialize local vision support.');
                     return;
                 }
 
@@ -52,36 +124,36 @@ export function StaticObjectScanner() {
         loadLocalModel();
     }, []);
 
-    // 2. Capture a single static image and process it
     const captureAndRecognize = async () => {
-        if ((!cameraRef.current) || !context) return;
+        if (!context || !photoOutputRef.current || !sessionReady) return;
 
         try {
             setIsAnalyzing(true);
             setResult('Analyzing image completely offline...');
 
-            // @ts-ignore
-            const photo = await cameraRef.current.takePhoto({
-                flash: 'off',
-                enableShutterSound: false
+            const { filePath } = await photoOutputRef.current.capturePhotoToFile({}, {});
+            await sessionRef.current?.stop();
+            setSessionReady(false);
+
+            const timestamp = Date.now();
+            const destPath = FileSystem.documentDirectory + `capture_${timestamp}.jpg`;
+            await FileSystem.copyAsync({
+                from: `file://${filePath}`,
+                to: destPath,
             });
 
-            const localImageFile = `file://${photo.path}`;
-            setPhotoUri(localImageFile);
-
-            const prompt = 'Describe the main objects you see in this image.';
-
-            const tokenizeResult = await context.tokenize(
-                `Describe this image: <__media__>`,
-                { media_paths: [localImageFile] }
-            );
+            const cleanDest = destPath.startsWith('file://') ? destPath.slice(7) : destPath;
+            setPhotoUri(destPath);
 
             const response = await context.completion({
-                prompt: prompt,
-                guide_tokens: tokenizeResult.tokens,
+                prompt: `What objects do you see in this image? <__media__>`,
+                media_paths: [cleanDest],
+                temperature: 0.1,
+                n_predict: 512,        
+                stop: ['</s>']
             });
 
-            setResult(response.text); // Displays the identified objects
+            setResult(response.text.trim());
         } catch (error: any) {
             setResult(`Analysis failed: ${error.message}`);
         } finally {
@@ -89,21 +161,51 @@ export function StaticObjectScanner() {
         }
     };
 
-    if (device == null) return <Text>Camera hardware not found.</Text>;
+    if (!hasPermission) {
+        return (
+            <View style={styles.container}>
+                <Text style={{ color: '#fff', textAlign: 'center', marginTop: 40 }}>
+                    Camera permission required.
+                </Text>
+                <TouchableOpacity onPress={requestPermission} style={styles.button}>
+                    <Text style={styles.btnText}>Grant Permission</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    if (!device) return <Text>Camera hardware not found.</Text>;
 
     return (
         <View style={styles.container}>
             {photoUri ? (
                 <Image source={{ uri: photoUri }} style={styles.viewer} />
+            ) : previewOutputRef.current ? (
+                <NativePreviewView
+                    previewOutput={previewOutputRef.current}
+                    style={styles.viewer}
+                />
             ) : (
-                <Camera ref={cameraRef as any} style={styles.viewer} device={device} isActive={true} />
+                <View style={[styles.viewer, { backgroundColor: '#000' }]} />
             )}
 
             <View style={styles.uiBox}>
                 <Text style={styles.statusText}>{result}</Text>
 
                 {photoUri ? (
-                    <TouchableOpacity style={styles.button} onPress={() => setPhotoUri(null)}>
+                    <TouchableOpacity style={styles.button} onPress={async () => {
+                        try {
+                            if (photoUri) {
+                                await FileSystem.deleteAsync(photoUri, { idempotent: true });
+                            }
+                            setPhotoUri(null);
+
+                            await sessionRef.current?.start();
+                            setSessionReady(true);
+                        } catch (error: any) {
+                            setResult(`Retake failed: ${error.message}`);
+                        }
+                    }}>
                         <Text style={styles.btnText}>Retake Photo</Text>
                     </TouchableOpacity>
                 ) : (
