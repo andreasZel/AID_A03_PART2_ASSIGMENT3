@@ -46,4 +46,21 @@
       module.exports = config;
       ```
 
-      
+6. prebuild and build the project 
+
+     ```bash
+      npx expo prebuild --clean
+      npx expo start --clear
+     ```
+
+7. create a debug build, we dpn't need a release, because we won't upload to play store. Please move
+   ai-application to desktop before you create, there are issues with big path an c++ files 
+
+   ```bash
+   cd android
+   ./gradlew assembleDebug
+   ```
+
+   then a apk will be created in app/build/outputs/apk/debug/app-debug.apk
+
+   take it and istall it in your device
