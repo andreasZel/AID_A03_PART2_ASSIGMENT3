@@ -133,7 +133,9 @@ export function StaticObjectScanner() {
             setIsAnalyzing(true);
             setResult('Analyzing image...');
 
-            const { filePath } = await photoOutputRef.current.capturePhotoToFile({}, {});
+            const { filePath } = await photoOutputRef.current.capturePhotoToFile({
+                enableShutterSound: false
+            }, {});
             await sessionRef.current?.stop();
             setSessionReady(false);
 
@@ -191,7 +193,7 @@ export function StaticObjectScanner() {
                         style={styles.viewer}
                     />
                 ) : (
-                    <View style={[styles.viewer, { backgroundColor: '#000' }]} />
+                    <View style={[styles.viewer, { backgroundColor: '#000000' }]} />
                 )}
                 <TouchableOpacity style={styles.takephotoButton} onPress={async () => {
                     if (isAnalyzing) return;

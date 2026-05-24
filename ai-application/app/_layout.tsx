@@ -1,9 +1,9 @@
 import 'react-native-reanimated';
-import { StaticObjectScanner } from '@/components/StaticObjectScanner';
+import { Slot } from 'expo-router';
 
 export default function RootLayout() {
-  
+
   return (
-   <StaticObjectScanner />
+    <Slot />
   );
 }
