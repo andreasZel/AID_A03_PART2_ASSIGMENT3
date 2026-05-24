@@ -45,22 +45,42 @@
 
       module.exports = config;
       ```
+6. add camera permission to app.js
 
-6. prebuild and build the project 
+      ```javascript
+     "android": {
+            "newArchEnabled": true,
+            "permissions": [
+            "android.permission.CAMERA" // this one
+            ],
+            "jsEngine": "hermes",
+            "adaptiveIcon": {
+            "backgroundColor": "#E6F4FE",
+            "foregroundImage": "./assets/images/android-icon-foreground.png",
+            "backgroundImage": "./assets/images/android-icon-background.png",
+            "monochromeImage": "./assets/images/android-icon-monochrome.png"
+            },
+            "edgeToEdgeEnabled": true,
+            "predictiveBackGestureEnabled": false,
+            "package": "com.andreaszel.aiapplication"
+      },
+      ```
+
+
+7. prebuild and build the project 
 
      ```bash
       npx expo prebuild --clean
       npx expo start --clear
      ```
 
-7. create a debug build, we dpn't need a release, because we won't upload to play store. Please move
+8. create a debug build, we dpn't need a release, because we won't upload to play store. Please move
    ai-application to desktop before you create, there are issues with big path an c++ files 
 
    ```bash
-   cd android
-   ./gradlew assembleDebug
+   npx expo run:android --variant release
    ```
 
-   then a apk will be created in app/build/outputs/apk/debug/app-debug.apk
+   then a apk will be created in android\app\build\outputs\apk\release\app-release.apk
 
    take it and istall it in your device
