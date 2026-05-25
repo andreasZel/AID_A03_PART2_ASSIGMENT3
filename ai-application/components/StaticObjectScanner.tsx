@@ -6,7 +6,6 @@ import { File, Paths } from "expo-file-system";
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system/legacy';
 
-type Prediction = { label: string; confidence: number };
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const modelRequireHandle = require("../assets/models/SmolVLM2-256M-Video-Instruct-Q8_0.gguf");
