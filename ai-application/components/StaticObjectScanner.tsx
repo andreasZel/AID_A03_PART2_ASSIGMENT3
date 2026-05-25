@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { TouchableOpacity, View, StyleSheet, Text, Image } from "react-native";
+import { TouchableOpacity, View, StyleSheet, Text, Image, Dimensions } from "react-native";
 import { CameraSession, NativePreviewView, useCameraDevice, useCameraPermission, VisionCamera } from "react-native-vision-camera";
 import { initLlama, LlamaContext } from "llama.rn";
 import { File, Paths } from "expo-file-system";
@@ -13,9 +13,7 @@ const modelRequireHandle = require("../assets/models/SmolVLM2-256M-Video-Instruc
 const mmprojRequireHandle = require("../assets/models/mmproj-SmolVLM2-256M-Video-Instruct-Q8_0.gguf");
 /* eslint-disable @typescript-eslint/no-require-imports */
 
-
 export function StaticObjectScanner() {
-
     const { hasPermission, requestPermission } = useCameraPermission();
     const device = useCameraDevice('back');
 
@@ -84,7 +82,6 @@ export function StaticObjectScanner() {
     useEffect(() => {
         const loadLocalModel = async () => {
             try {
-
                 const localModelFile = new File(Paths.document, 'model.gguf');
                 const localMmprojFile = new File(Paths.document, 'mmproj.gguf');
 
@@ -152,10 +149,10 @@ export function StaticObjectScanner() {
             const response = await context.completion({
                 prompt: `Analyze the image and list aobjects you see. Reply with just their names, one per line. <__media__>`,
                 media_paths: [cleanDest],
-                temperature: 0.0,        // fully deterministic
-                top_k: 1,                // greedy: always pick highest prob token
+                temperature: 0.0, // fully deterministic
+                top_k: 1,  // greedy: always pick highest prob token
                 n_predict: 256,
-                n_probs: 5,              // return top-2 token probs per generated token
+                n_probs: 5,// return top-2 token probs per generated token
                 stop: ['</s>'],
             });
 
@@ -169,8 +166,8 @@ export function StaticObjectScanner() {
 
     if (!hasPermission) {
         return (
-            <View style={styles.container}>
-                <Text style={{ color: '#fff', textAlign: 'center', marginTop: 40 }}>
+            <View style={[styles.container, styles.centered]}>
+                <Text style={{ color: '#fff', textAlign: 'center', marginBottom: 20 }}>
                     Camera permission required.
                 </Text>
                 <TouchableOpacity onPress={requestPermission} style={styles.button}>
@@ -180,33 +177,45 @@ export function StaticObjectScanner() {
         );
     }
 
-    if (!device) return <Text>Camera hardware not found.</Text>;
+    if (!device) {
+        return (
+            <View style={[styles.container, styles.centered]}>
+                <Text style={{ color: '#fff' }}>Camera hardware not found.</Text>
+            </View>
+        );
+    }
+
+    const showExpandedResult = !isAnalyzing && photoUri;
 
     return (
         <View style={styles.container}>
             <View style={styles.imageCameraWrapper}>
                 {photoUri ? (
-                    <Image source={{ uri: photoUri }} style={styles.viewer} />
+                    <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
                 ) : previewOutputRef.current ? (
                     <NativePreviewView
                         previewOutput={previewOutputRef.current}
-                        style={styles.viewer}
+                        style={StyleSheet.absoluteFillObject}
                     />
                 ) : (
-                    <View style={[styles.viewer, { backgroundColor: '#000000' }]} />
+                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000000' }]} />
                 )}
-                <TouchableOpacity style={styles.takephotoButton} onPress={async () => {
+            </View>
+
+            <TouchableOpacity
+                style={[
+                    styles.takephotoButton,
+                    { bottom: showExpandedResult ? '38%' : 130 } // Safely stands clear of both states
+                ]}
+                disabled={isAnalyzing}
+                onPress={async () => {
                     if (isAnalyzing) return;
 
                     if (photoUri) {
-
                         try {
-                            if (photoUri) {
-                                setResult("");
-                                await FileSystem.deleteAsync(photoUri, { idempotent: true });
-                            }
+                            setResult("");
+                            await FileSystem.deleteAsync(photoUri, { idempotent: true });
                             setPhotoUri(null);
-
                             await sessionRef.current?.start();
                             setSessionReady(true);
                         } catch (error: any) {
@@ -215,25 +224,86 @@ export function StaticObjectScanner() {
                     } else {
                         captureAndRecognize();
                     }
-                }}>
-                    <Text style={styles.btnText}>{isAnalyzing ? "Analyzing..." : photoUri ? 'Retake Photo' : 'Capture Image'}</Text>
-                </TouchableOpacity>
-            </View>
+                }}
+            >
+                <Text style={styles.btnText}>
+                    {isAnalyzing ? "Analyzing..." : photoUri ? 'Retake Photo' : 'Capture Image'}
+                </Text>
+            </TouchableOpacity>
 
-            <View style={[styles.uiBox, { flex: isAnalyzing || !photoUri ? 0 : 1.5, padding: isAnalyzing || !photoUri ? 20 : 0 }]}>
+            <View style={[styles.uiBox, showExpandedResult ? styles.uiBoxExpanded : styles.uiBoxCollapsed]}>
                 <Text style={styles.statusText}>{result}</Text>
-            </View >
-        </View >
+            </View>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#000' },
-    viewer: { flex: 3 },
-    uiBox: { boxShadow: 'rgba(42, 71, 124, 0.62) 0px 30px 60px -12px inset, rgba(42, 71, 124, 0.3) 0px 18px 36px -18px inset', backgroundColor: '#353535', alignItems: 'center', justifyContent: 'center', borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-    statusText: { fontSize: 16, textAlign: 'center', color: '#fff' },
-    button: { backgroundColor: '#007AFF', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 25 },
-    btnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-    imageCameraWrapper: { position: 'relative', flex: 3 },
-    takephotoButton: { shadowColor: '#007AFF', elevation: 10, position: 'absolute', bottom: 50, alignSelf: 'center', backgroundColor: '#007AFF', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 25 },
+    container: {
+        flex: 1,
+        backgroundColor: '#000'
+    },
+    centered: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20
+    },
+    imageCameraWrapper: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    uiBox: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: '#353535',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingHorizontal: 20,
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+    },
+    uiBoxCollapsed: {
+        height: 100,
+    },
+    uiBoxExpanded: {
+        height: '35%',
+        paddingVertical: 20,
+    },
+    statusText: {
+        fontSize: 16,
+        textAlign: 'center',
+        color: '#fff',
+        fontWeight: '500'
+    },
+    button: {
+        backgroundColor: '#007AFF',
+        paddingHorizontal: 30,
+        paddingVertical: 15,
+        borderRadius: 25
+    },
+    btnText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 16
+    },
+    takephotoButton: {
+        elevation: 10,
+        position: 'absolute',
+        alignSelf: 'center',
+        backgroundColor: '#007AFF',
+        paddingHorizontal: 30,
+        paddingVertical: 15,
+        borderRadius: 25,
+        shadowColor: '#007AFF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 6,
+        zIndex: 10,
+    },
 });
