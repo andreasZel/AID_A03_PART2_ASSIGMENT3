@@ -101,6 +101,7 @@ export function StaticObjectScanner() {
                 const llamaContext = await initLlama({
                     model: localModelFile.uri,
                     n_ctx: 2048,
+                    ctx_shift: false
                 });
 
                 const multimodalReady = await llamaContext.initMultimodal({
@@ -146,14 +147,30 @@ export function StaticObjectScanner() {
             setPhotoUri(destPath);
 
             const response = await context.completion({
-                prompt: `Analyze the image and list aobjects you see. Reply with just their names, one per line. <__media__>`,
-                media_paths: [cleanDest],
-                temperature: 0.0, // fully deterministic
-                top_k: 1,  // greedy: always pick highest prob token
-                n_predict: 256,
-                n_probs: 5,// return top-2 token probs per generated token
-                stop: ['</s>'],
+                messages: [
+                    {
+                        role: 'user',
+                        content: [
+                            { type: 'text', text: 'Analyze the image and list objects you see. Reply with just their names, one per line.' },
+                            { type: 'image_url', image_url: { url: `file://${cleanDest}` } }
+                        ]
+                    }
+                ],
+                temperature: 0.0,
+                top_p: 0.9,                  // Discards low-probability stray tokens
+                top_k: 1,
+                penalty_repeat: 1.2,         // penalize the model if it repeats words/lines
+                penalty_present: 0.1,        // Encourages introducing fresh words/lines
+                n_predict: 64,               // list a few words
+                stop: [
+                    '</s>',
+                    '<|im_end|>',            // Common chat/instruct terminator sequence
+                    '<|endoftext|>',
+                    '\n\n\n'                 // If the model hits enter 3 times, cut it off (avoid repeating)
+                ],
             });
+
+            await context.clearCache();
 
             setResult(`Recognition Result:\n${response.text.trim()}` || 'No recognizable objects found.');
         } catch (error: any) {
