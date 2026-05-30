@@ -2,6 +2,8 @@
 
 ## Student: Zelios Andreas mscaidl-0142
 
+This is a repo for msc AIDL program of UNIWA, specifically for the part 2 of the A03 Module's project **“Development of an Object Recognition Application”**.
+
 ## Process to implement
 
 1. Create the basic react native application:
