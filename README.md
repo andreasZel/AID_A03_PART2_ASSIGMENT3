@@ -4,6 +4,26 @@
 
 This is a repo for msc AIDL program of UNIWA, specifically for the part 2 of the A03 Module's project **“Development of an Object Recognition Application”**.
 
+## Usage
+
+<div align="center">
+
+| 1. Model Loading | 2. Model Ready, take photo |
+| :---: | :---: |
+| <img src="./preview_images/loading_model.png" width="250" alt="Model Loading"> | <img src="./preview_images/model_ready.jpg" width="250" alt="Model Ready"> |
+
+</div>
+
+<br>
+
+<div align="center">
+
+| 3. Analyzing | 4. Result, Retake Photo |
+| :---: | :---: |
+| <img src="./preview_images/analyzing.png" width="250" alt="Analyzing"> | <img src="./preview_images/retake_photo.png" width="250" alt="Retake Photo"> |
+
+</div>
+
 ## Process to implement
 
 1. Create the basic react native application:
