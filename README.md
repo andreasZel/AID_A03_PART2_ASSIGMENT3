@@ -105,4 +105,33 @@ This is a repo for msc AIDL program of UNIWA, specifically for the part 2 of the
 
    then a apk will be created in android\app\build\outputs\apk\release\app-release.apk
 
-   take it and istall it in your device
+9. take it and istall it in your device, by
+      - first enable developer onptions
+      - enable usb debugging
+      - enable install untrusted apps
+
+then after install, you can enable the options again.
+
+## Use already existing code
+
+1. move the `ai-application` to desktop, because of the C++ compilation, issues arise if you
+   run the build commands inside another folder
+
+2. run `set "TAR_OPTIONS=--force-local" && npm install` inside the `ai-application` folder
+
+3. prebuild and build the project 
+
+     ```bash
+      npx expo prebuild --clean
+      npx expo start --clear
+     ```
+4. create a lelease apk  
+
+   ```bash
+   npx expo run:android --variant release
+   ```
+
+5. take it and istall it in your device, by
+      - first enable developer onptions
+      - enable usb debugging
+      - enable install untrusted apps
